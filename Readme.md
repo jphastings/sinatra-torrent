@@ -5,6 +5,11 @@ There was [a /. article](http://ask.slashdot.org/story/10/10/04/0035231) about B
 
 Ruby doesn't appear to like BitTorrent very much, most libraries are pretty old and I figured I'd spruce up my favourite jazz legend themed DSL with a library to make serving torrents *ridiculously* easy.
 
+Important!
+----------
+
+(GetRight style) web seeding kinda depends on being able to specify byte ranges for files. Sinatra does not support this by default, however I've submitted a pull request for a patch which enables it for the `send_file` method which sinatra uses. Until then you may want to use my [sinatra fork](http://github.com/jphastings/sinatra) if you're keen on trying this out.
+
 Usage
 -----
 
