@@ -1,0 +1,5 @@
+%ul
+	-locals[:torrents].each do |torrent|
+		%li
+			%a{:href=>"/#{options.torrents_mount}/#{torrent}.torrent"}=torrent
+	
