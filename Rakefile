@@ -10,6 +10,8 @@ begin
     gem.email = "jphastings@gmail.com"
     gem.homepage = "http://github.com/jphastings/sinatra-torrent"
     gem.authors = ["JP Hastings-Spital"]
+    
+    gem.add_dependency('sinatra','>=1.1.2') # Required for send_file modifications
   end
   Jeweler::GemcutterTasks.new
 rescue LoadError
