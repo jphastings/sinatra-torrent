@@ -5,11 +5,6 @@ There was [a /. article](http://ask.slashdot.org/story/10/10/04/0035231) about B
 
 Ruby doesn't appear to like BitTorrent very much, most libraries are pretty old and I figured I'd spruce up my favourite jazz legend themed DSL with a library to make serving torrents *ridiculously* easy.
 
-Important!
-----------
-
-(GetRight style) web seeding kinda depends on being able to specify byte ranges for files. Sinatra does not support this by default, however I've submitted a pull request for a patch which enables it for the `send_file` method which sinatra uses. Until then you may want to use my [sinatra fork](http://github.com/jphastings/sinatra) if you're keen on trying this out.
-
 Usage
 -----
 
@@ -19,6 +14,8 @@ Usage
 "Woah, that's pretty simple!" I hear you say. Why yes, I think it is.
 
 All files you put in the `downloads` directory at the root of your sinatra app will be downloadable at `/downloads/your_file.ext` and it's torrent will be dynamically generated (and cached) at `/torrents/your_file.ext.torrent`. You will have trouble with larger files as it currently hashes as part of the request first time round. I'm planning on pushing this out to workers at some point. Not yet sure how I'm going to do that…
+
+**NB.** Files that take longer than 1s to hash will fail at the moment!
 
 The extension is in it's early stages at the moment, so many of the settings aren't adhered to, and there are some issues with the webseeding… however it *does* work.
 
