@@ -22,9 +22,9 @@ module Sinatra
       # Mount point for the torrents directory
       app.set :torrents_mount, 'torrents'
       # Load up a database adapter if one isn't already loaded
-      require 'sinatra/torrent/activerecord' unless Kernel.const_defined?('SinatraTorrentDatabase')
+      #require 'sinatra/torrent/activerecord' unless Sinatra::Torrent.const_defined?('Database')
       # Stores the instance of the database used to store tracker info.
-      app.set :database_adapter, SinatraTorrentDatabase.new
+      app.set :database_adapter, Sinatra::Torrent::Database.new
       # The comment added into torrents
       app.set :torrent_comment, ''
       # Do we wish to track external torrents too? (untested)
@@ -37,12 +37,10 @@ module Sinatra
       app.mime_type :torrent, 'application/x-bittorrent'
 
       # Serves up the torrents with appropriate announce URL
-      app.get Regexp.new("^/torrents/.+\.torrent$") do
-        # Does file exist?
-        rel_location = File.expand_path(URI.decode(env['REQUEST_PATH'])[options.torrents_mount.length+1..-9])
+      app.get Regexp.new("^/#{app.options.torrents_mount}/(.+)\.torrent$") do |rel_location|
         filename = File.join(options.downloads_directory, rel_location)
         halt(404, "That file doesn't exist! #{filename}") unless File.exists?(filename)
-                        
+        
         if true #!(d = options.database_adapter.torrent_by_path_and_timestamp(filename,File.mtime(filename)))
           
           d = {
@@ -51,9 +49,9 @@ module Sinatra
               'created by' => 'sinatra-torrent (0.0.1) (http://github.com/jphastings/sinatra-torrent)',
               'creation date' => Time.now.to_i,
               'info' => {
-                'name' => File.basename(env['REQUEST_PATH'],'.torrent'),
+                'name' => File.basename(rel_location),
                 'length' => File.size(filename),
-                'piece length' => 64 * 1024, # TODO: Choose reasonable piece size
+                'piece length' => 2**10, # TODO: Choose reasonable piece size
                 'pieces' => ''
               }
             }
@@ -62,7 +60,7 @@ module Sinatra
           begin
             file = open(filename,'r')
             
-            Timeout::timeout(60) do
+            Timeout::timeout(1000) do
               begin
                 d['metadata']['info']['pieces'] += Digest::SHA1.digest(file.read(d['metadata']['info']['piece length']))
               end until file.eof?
@@ -80,9 +78,9 @@ module Sinatra
         
         # These are options which could change between database retrievals
         d['metadata'].merge!({
-          'httpseeds' => ['http://'+env['HTTP_HOST'] +'/'+options.torrents_mount+'/webseed'],
-          'url-list' => ['http://'+env['HTTP_HOST'] +'/'+ options.downloads_mount + rel_location+'?'+d['infohash']],
-          'announce' => options.external_tracker || 'http://'+env['HTTP_HOST'] +'/'+options.torrents_mount+'/announce',
+          'httpseeds' => [File.join('http://'+env['HTTP_HOST'],URI.encode(options.torrents_mount),'webseed')],
+          'url-list' => [File.join('http://'+env['HTTP_HOST'],URI.encode(options.downloads_mount),URI.encode(rel_location)+'?'+d['infohash'])],
+          'announce' => options.external_tracker || File.join('http://'+env['HTTP_HOST'],URI.encode(options.torrents_mount),'announce'),
           'comment' => options.torrent_comment,
         })
         
@@ -93,8 +91,8 @@ module Sinatra
 # TRACKER
       
       # Tracker announce mount point
-      app.get '/torrents/announce' do
-        # Convert to a hex info_hash
+      app.get "/#{app.options.torrents_mount}/announce" do
+        # Convert to a hex info_hash if required TODO: Is it required?
         params['info_hash'] = Digest.hexencode(params['info_hash'] || '')
         halt(400,"A valid info-hash was not given") if params['info_hash'].match(/^[0-9a-f]{40}$/).nil?
         info = options.database_adapter.torrent_info(params['info_hash'])
@@ -109,9 +107,12 @@ module Sinatra
         
         params['ip'] ||= env['REMOTE_ADDR']
         
+        # Errmmm - HACK!
+        params['peer_id'] = params['peer_id'].force_encoding("ISO-8859-1")
+        
         # Registers this peer's announcement
         options.database_adapter.announce(params)
-        
+
         {
           'interval' => options.announce_frequency,
           #'tracker id' => 'bleugh', # TODO: Keep this?
@@ -126,10 +127,15 @@ module Sinatra
         # TODO: Make it work!
       end
 
+# INDEX PAGE
+      app.get "/#{app.options.torrents_mount}/" do
+        haml :torrents_index,:locals => {:torrents => Dir.glob("#{options.downloads_directory}/**").collect {|f| f[options.downloads_directory.length+1..-1] } }
+      end
+
 # DATA
 
       # BitTornado WebSeeding manager
-      app.get '/torrents/webseed' do
+      app.get "/#{app.options.torrents_mount}/webseed" do
         # Which file is the client looking for?
         halt(404, "Torrent not tracked") unless (options.database_adapter.torrent_by_infohash(params[:infohash]))
         
@@ -140,7 +146,7 @@ module Sinatra
       end
       
       # Provides the files for web download. Any query parameters are treated as a checksum for the file (via the torrent infohash)
-      app.get "/downloads/:filename" do
+      app.get "/#{app.options.downloads_mount}/:filename" do
         filename = File.join(options.downloads_directory,File.expand_path('/'+params[:filename]))
         halt(404) unless File.exists?(filename)
         
