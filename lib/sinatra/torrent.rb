@@ -22,7 +22,7 @@ module Sinatra
       # Mount point for the torrents directory
       app.set :torrents_mount, 'torrents'
       # Load up a database adapter if one isn't already loaded
-      #require 'sinatra/torrent/activerecord' unless Sinatra::Torrent.const_defined?('Database')
+      require 'sinatra/torrent/activerecord' unless (Sinatra::Torrent.const_defined?('Database') rescue false)
       # Stores the instance of the database used to store tracker info.
       app.set :database_adapter, Sinatra::Torrent::Database.new
       # The comment added into torrents
@@ -60,14 +60,14 @@ module Sinatra
           begin
             file = open(filename,'r')
             
-            Timeout::timeout(1000) do
+            Timeout::timeout(1) do
               begin
                 d['metadata']['info']['pieces'] += Digest::SHA1.digest(file.read(d['metadata']['info']['piece length']))
               end until file.eof?
             end
           rescue Timeout::Error
             # TODO: Actually run it in the background!
-            halt(503,"This torrent is taking too long to build, we're running it in the background. Please try again in a few minutes.")
+            halt(503,"This torrent is taking too long to build, we're [not currently supporting!] running it in the background. Please try again in a few minutes.")
           ensure
             file.close
           end
