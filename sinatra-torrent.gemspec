@@ -15,9 +15,10 @@ Gem::Specification.new do |s|
   s.files = [
     "Rakefile",
      "Readme.md",
+     "VERSION",
      "lib/sinatra/torrent.rb",
      "lib/sinatra/torrent/activerecord.rb",
-     "torrents.db",
+     "sinatra-torrent.gemspec",
      "views/torrents_index.haml"
   ]
   s.homepage = %q{http://github.com/jphastings/sinatra-torrent}
