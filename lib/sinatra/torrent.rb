@@ -1,8 +1,6 @@
 require 'timeout'
-require 'time'
-require 'digest/sha1'
-require 'bencode'
 require 'sinatra/base'
+require 'sinatra/torrent/helpers'
 
 # This extension will serve up the contents of the specified folder as web seeded torrents.
 # Both webseed versions are supported (shad0w's and GetRight's) and there is an inbuilt tracker
@@ -16,7 +14,7 @@ module Sinatra
       # Putting the annouce URL of a tracker in here will use that tracker rather than the inbuilt one
       app.set :external_tracker, nil
       # Directory which holds all the files which will be provided as torrents
-      app.set :downloads_directory, File.dirname(__FILE__)+'downloads'
+      app.set :downloads_directory, File.join(File.dirname(__FILE__),Sinatra::Torrent::DOWNLOADS_DIRECTORY)
       # Mount point for the downloads directory
       app.set :downloads_mount, 'downloads'
       # Mount point for the torrents directory
@@ -41,38 +39,31 @@ module Sinatra
         filename = File.join(options.downloads_directory, rel_location)
         halt(404, "That file doesn't exist! #{filename}") unless File.exists?(filename)
         
-        if true #!(d = options.database_adapter.torrent_by_path_and_timestamp(filename,File.mtime(filename)))
-          
-          d = {
-            'metadata' => {
-              # TODO: Version?
-              'created by' => 'sinatra-torrent (0.0.1) (http://github.com/jphastings/sinatra-torrent)',
-              'creation date' => Time.now.to_i,
-              'info' => {
-                'name' => File.basename(rel_location),
-                'length' => File.size(filename),
-                'piece length' => 2**10, # TODO: Choose reasonable piece size
-                'pieces' => ''
-              }
-            }
-          }
+        if !(d = options.database_adapter.torrent_by_path_and_timestamp(filename,File.mtime(filename)))
           
           begin
-            file = open(filename,'r')
-            
             Timeout::timeout(1) do
-              begin
-                d['metadata']['info']['pieces'] += Digest::SHA1.digest(file.read(d['metadata']['info']['piece length']))
-              end until file.eof?
+              d = Sinatra::Torrent.create(filename)
             end
           rescue Timeout::Error
-            # TODO: Actually run it in the background!
-            halt(503,"This torrent is taking too long to build, we're [not currently supporting!] running it in the background. Please try again in a few minutes.")
-          ensure
-            file.close
+            eta = options.database_adapter.add_hashjob(filename)
+            
+            begin
+              wait = case (eta/60).floor
+              when 0
+                'under a minute'
+              when 1
+                'about a minute'
+              else
+                "about #{(eta/60).floor} minutes"
+              end
+            rescue NoMethodError
+              wait = "a short while"
+            end
+            
+            halt(503,"This torrent is taking too long to build, we're running it in the background. Please try again in #{wait}.")
           end
           
-          d['infohash'] = Digest::SHA1.hexdigest(d['metadata']['info'].bencode)
           options.database_adapter.store_torrent(filename,File.mtime(filename),d['metadata'],d['infohash'])
         end
         
@@ -128,8 +119,15 @@ module Sinatra
       end
 
 # INDEX PAGE
+
+      # TODO: Have a 'fallback' index view?
       app.get "/#{app.options.torrents_mount}/" do
-        haml :torrents_index,:locals => {:torrents => Dir.glob("#{options.downloads_directory}/**").collect {|f| f[options.downloads_directory.length+1..-1] } }
+        locals = {:torrents => (Dir.glob("#{options.downloads_directory}/**").collect {|f| f[options.downloads_directory.length+1..-1] } rescue [])}
+        begin
+          haml :torrents_index,:locals => locals
+        rescue Errno::ENOENT
+          "<ul>"<<locals[:torrents].collect{|t| "<li><a href=\"/#{options.torrents_mount}/#{t}.torrent\">#{t}</a></li>" }.join<<"</ul>"
+        end
       end
 
 # DATA

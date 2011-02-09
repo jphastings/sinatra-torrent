@@ -32,7 +32,11 @@ module Sinatra
             end
         
             add_index :torrents, :infohash, :unique => true
+          end
+        end
         
+        unless Peer.table_exists?
+          ActiveRecord::Schema.define do
             create_table :peers do |table|
               table.string :torrent_infohash, :null => false
               table.string :peer_id
@@ -45,7 +49,19 @@ module Sinatra
               table.timestamps
             end
         
-            add_index :peers, [:peer_id,:torrent_infohash],:unique => true
+            add_index :peers, [:peer_id,:torrent_infohash], :unique => true
+          end
+        end
+        
+        unless DelayedJob.table_exists?
+          ActiveRecord::Schema.define do
+            create_table :delayed_jobs do |table|
+              table.string :filename, :null => false
+              
+              table.timestamp :created_at
+            end
+        
+            add_index :delayed_jobs, :filename, :unique => true
           end
         end
       end
@@ -129,15 +145,34 @@ module Sinatra
     
         peer.save
       end
+      
+      
+      # Registers a file to be hashed offline
+      def add_hashjob(filename)
+        DelayedJob.find_or_create_by_filename(filename)
+        # return eta in seconds, where possible
+        nil
+      end
+    
+      # Lists outstanding files to be hashed, by request date hopefully!
+      def list_hashjobs
+        DelayedJob.find(:all,:order => 'created_at DESC').collect{|dj| dj.filename}
+      end
+    
+      # Removes a file from the 'to be hashed' list
+      def remove_hashjob(filename)
+        DelayedJob.find_by_filename(filename).delete rescue false
+      end
   
       private
+      
       class Torrent < ActiveRecord::Base
         serialize :metadata, Hash
       end
   
-      class Peer < ActiveRecord::Base
-    
-      end
+      class Peer < ActiveRecord::Base; end
+      
+      class DelayedJob < ActiveRecord::Base; end
     end
   end
 end
