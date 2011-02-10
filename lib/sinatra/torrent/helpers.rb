@@ -4,7 +4,20 @@ require 'bencode'
 
 module Sinatra
   module Torrent
-    DOWNLOADS_DIRECTORY = 'downloads'
+    @@downloads_directory = 'downloads'
+    
+    def self.downloads_directory=(d)
+      if File.directory?(d)
+        @@downloads_directory = d
+      else
+        # TODO: ERR error
+        raise RuntimeError, "The downloads directory doesn't exist"
+      end
+    end
+    
+    def self.downloads_directory
+      @@downloads_directory
+    end
     
     def self.create(filename)
       d = {

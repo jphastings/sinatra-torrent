@@ -14,7 +14,7 @@ module Sinatra
       # Putting the annouce URL of a tracker in here will use that tracker rather than the inbuilt one
       app.set :external_tracker, nil
       # Directory which holds all the files which will be provided as torrents
-      app.set :downloads_directory, File.join(File.dirname(__FILE__),Sinatra::Torrent::DOWNLOADS_DIRECTORY)
+      app.set :downloads_directory, File.join(File.dirname(__FILE__),Sinatra::Torrent.downloads_directory)
       # Mount point for the downloads directory
       app.set :downloads_mount, 'downloads'
       # Mount point for the torrents directory
@@ -39,14 +39,14 @@ module Sinatra
         filename = File.join(options.downloads_directory, rel_location)
         halt(404, "That file doesn't exist! #{filename}") unless File.exists?(filename)
         
-        if !(d = options.database_adapter.torrent_by_path_and_timestamp(filename,File.mtime(filename)))
-          
+        if !(d = options.database_adapter.torrent_by_path_and_timestamp(rel_location,File.mtime(filename)))
+          p d
           begin
             Timeout::timeout(1) do
               d = Sinatra::Torrent.create(filename)
             end
           rescue Timeout::Error
-            eta = options.database_adapter.add_hashjob(filename)
+            eta = options.database_adapter.add_hashjob(rel_location)
             
             begin
               wait = case (eta/60).floor
@@ -64,7 +64,7 @@ module Sinatra
             halt(503,"This torrent is taking too long to build, we're running it in the background. Please try again in #{wait}.")
           end
           
-          options.database_adapter.store_torrent(filename,File.mtime(filename),d['metadata'],d['infohash'])
+          options.database_adapter.store_torrent(rel_location,File.mtime(filename),d['metadata'],d['infohash'])
         end
         
         # These are options which could change between database retrievals

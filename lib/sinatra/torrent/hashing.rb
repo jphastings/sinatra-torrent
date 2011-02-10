@@ -9,7 +9,7 @@ namespace :hash do
 
   task :add do
     ARGV[1..-1].each do |rel_location|
-      if (File.exists?(File.join(Sinatra::Torrent::DOWNLOADS_DIRECTORY,rel_location)))
+      if (File.exists?(File.join(Sinatra::Torrent.downloads_directory,rel_location)))
         torrent_db.add_hashjob(rel_location)
         $stdout.puts "added to queue: #{rel_location}"
       else
@@ -22,13 +22,13 @@ namespace :hash do
     completed = 0
     failed = 0
     
-    Dir[File.join(Sinatra::Torrent::DOWNLOADS_DIRECTORY,'**')].each do |filename|
-      rel_location = filename[Sinatra::Torrent::DOWNLOADS_DIRECTORY.length+1..-1]
+    Dir[File.join(Sinatra::Torrent.downloads_directory,'**')].each do |filename|
+      rel_location = filename[Sinatra::Torrent.downloads_directory.length+1..-1]
       
       begin
         if !torrent_db.torrent_by_path_and_timestamp(rel_location,File.mtime(filename))
           d = Sinatra::Torrent.create(filename)
-        
+          
           torrent_db.store_torrent(rel_location,File.mtime(filename),d['metadata'],d['infohash'])
         
           torrent_db.remove_hashjob(rel_location)
@@ -53,7 +53,7 @@ namespace :hash do
     failed = 0
     
     torrent_db.list_hashjobs.each do |rel_location|
-      filename = File.join(Sinatra::Torrent::DOWNLOADS_DIRECTORY,rel_location)
+      filename = File.join(Sinatra::Torrent.downloads_directory,rel_location)
       begin
         if torrent_db.torrent_by_path_and_timestamp(rel_location,File.mtime(filename))
           torrent_db.remove_hashjob(rel_location)

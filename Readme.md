@@ -44,7 +44,7 @@ If a torrent takes longer than 1 second to generate on-the-fly, it'll be added t
 	
 	# This line is optional, 'downloads' is the default
 	# If you've used `set :download_directory, 'files'` in your sinatra app, you need to do:
-	Sinatra::Torrent::DOWNLOAD_DIRECTORY = 'files'
+	Sinatra::Torrent.downloads_directory = 'files'
 	
 	# The rest of your Rakefile
 
