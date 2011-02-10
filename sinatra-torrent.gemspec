@@ -5,11 +5,11 @@
 
 Gem::Specification.new do |s|
   s.name = %q{sinatra-torrent}
-  s.version = "0.0.4"
+  s.version = "0.0.5"
 
   s.required_rubygems_version = Gem::Requirement.new(">= 0") if s.respond_to? :required_rubygems_version=
   s.authors = ["JP Hastings-Spital"]
-  s.date = %q{2011-02-09}
+  s.date = %q{2011-02-10}
   s.description = %q{An extension to Sinatra which will allow you to run a webseeded torrent tracker of files in the folder you specify.}
   s.email = %q{jphastings@gmail.com}
   s.files = [
