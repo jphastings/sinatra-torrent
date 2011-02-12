@@ -11,6 +11,7 @@ begin
     gem.authors = ["JP Hastings-Spital"]
     
     gem.add_dependency('sinatra','>=1.1.2') # Required for send_file modifications
+    gem.add_dependency('bencode')
   end
   Jeweler::GemcutterTasks.new
 rescue LoadError

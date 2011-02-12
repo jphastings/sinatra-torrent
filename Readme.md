@@ -13,19 +13,23 @@ Usage
 
 "Woah, that's pretty simple!" I hear you say. Why yes, I think it is.
 
-All files you put in the `downloads` directory at the root of your sinatra app will be downloadable at `/downloads/your_file.ext` and it's torrent will be dynamically generated (and cached) at `/torrents/your_file.ext.torrent`. You will have trouble with larger files as it currently hashes as part of the request first time round. I'm planning on pushing this out to workers at some point. Not yet sure how I'm going to do that…
+All files you put in the `downloads` directory at the root of your sinatra app will be downloadable at `/downloads/your_file.ext` and it's torrent will be dynamically generated (and cached) at `/torrents/your_file.ext.torrent`. If a torrent file takes over 1 second to be generated, it'll be put in a queue for creation in a background job. You can run these background jobs using the Rake helper (see below).
+
+If you have set the `:torrent_timeout` sinatra setting to a `Proc`, it will be run (synchronously!) after the delayed job has been queued and before the user is sent the error message. eg. `set :torrent_timeout, Proc.new { start_process_forked_running_rake_hash_queue }`
 
 ### I want options!
 
-There needs to be a database of torrents and peers, this is taken care of by a database adapter. Currently I've written (a really basic) one for active record, so many databases are supported as is, but you can write your own for others (eg. mongo). I'm still finding my way around the Sinatra extensions api, so this is how you specify your own ActiveRecord settings:
+There needs to be a database of torrents, peers and background hashing jobs, this is taken care of by a database adapter. Currently I've written (a really basic) one for active record, so many databases are supported as is, but you can write your own for others (eg. mongo). I'm still finding my way around the Sinatra extensions api, so this is how you specify your own ActiveRecord settings:
 
     require 'sinatra'
     require 'sinatra/torrent/activerecord'
-    SinatraTorrentDatabase.settings = {
+    Sinatra::Torrent::Database.settings = {
 	  'adapater' => 'sqlite3',
 	  'database' => 'torrents.db'
     }
     require 'sinatra/torrent'
+
+The active record adapter is loaded by default if no others are specified and an SQLite database will be maintained in memory unless options (like those above) are specified. This means that, unless you set settings like this, when your app shuts down your hashes will be lost!
 
 Rake
 ----
@@ -55,7 +59,7 @@ If a torrent takes longer than 1 second to generate on-the-fly, it'll be added t
 To Do
 -----
 
-* Execute a user-writen block of code when an on-the-fly torrent creation times out. This will allow people to trigger the background rake task immediately, rather than waiting on cron.
+* Get the BitTornado webseed style to work.
 
 Ummmm
 -----

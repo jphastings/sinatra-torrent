@@ -28,7 +28,9 @@ module Sinatra
       # Do we wish to track external torrents too? (untested)
       app.set :allow_external_torrents, false
       # The frequency with which we ask trackers to announce themselves. Once every x seconds
-      app.set :announce_frequency, 30
+      app.set :announce_frequency, 900
+      # Method to call when torrent creation timesout
+      app.set :torrent_timeout, nil
       
 # TORRENTS
 
@@ -40,7 +42,6 @@ module Sinatra
         halt(404, "That file doesn't exist! #{filename}") unless File.exists?(filename)
         
         if !(d = options.database_adapter.torrent_by_path_and_timestamp(rel_location,File.mtime(filename)))
-          p d
           begin
             Timeout::timeout(1) do
               d = Sinatra::Torrent.create(filename)
@@ -61,6 +62,8 @@ module Sinatra
               wait = "a short while"
             end
             
+            options.torrent_timeout.call if options.torrent_timeout.is_a?(Proc)
+            
             halt(503,"This torrent is taking too long to build, we're running it in the background. Please try again in #{wait}.")
           end
           
@@ -69,7 +72,8 @@ module Sinatra
         
         # These are options which could change between database retrievals
         d['metadata'].merge!({
-          'httpseeds' => [File.join('http://'+env['HTTP_HOST'],URI.encode(options.torrents_mount),'webseed')],
+# Webseeds not currently supported
+#          'httpseeds' => [File.join('http://'+env['HTTP_HOST'],URI.encode(options.torrents_mount),'webseed')],
           'url-list' => [File.join('http://'+env['HTTP_HOST'],URI.encode(options.downloads_mount),URI.encode(rel_location)+'?'+d['infohash'])],
           'announce' => options.external_tracker || File.join('http://'+env['HTTP_HOST'],URI.encode(options.torrents_mount),'announce'),
           'comment' => options.torrent_comment,
@@ -120,28 +124,27 @@ module Sinatra
 
 # INDEX PAGE
 
-      # TODO: Have a 'fallback' index view?
       app.get "/#{app.options.torrents_mount}/" do
-        locals = {:torrents => (Dir.glob("#{options.downloads_directory}/**").collect {|f| f[options.downloads_directory.length+1..-1] } rescue [])}
+        locals = {:torrents => (Dir.glob("#{options.downloads_directory}/**").collect {|f| {:file => f[options.downloads_directory.length+1..-1],:hashed? => options.database_adapter.torrent_by_path_and_timestamp(f[options.downloads_directory.length+1..-1],File.mtime(f)) != false} } rescue [])}
         begin
           haml :torrents_index,:locals => locals
         rescue Errno::ENOENT
-          "<ul>"<<locals[:torrents].collect{|t| "<li><a href=\"/#{options.torrents_mount}/#{t}.torrent\">#{t}</a></li>" }.join<<"</ul>"
+          "<ul>"<<locals[:torrents].collect{|t| "<li><a href=\"/#{options.torrents_mount}/#{t[:file]}.torrent\" class=\"#{(t[:hashed?] ? 'ready' : 'unhashed')}\">#{t[:file]}</a></li>" }.join<<"</ul>"
         end
       end
 
 # DATA
 
+=begin: Not currently supported
       # BitTornado WebSeeding manager
+      # http://bittornado.com/docs/webseed-spec.txt
       app.get "/#{app.options.torrents_mount}/webseed" do
         # Which file is the client looking for?
-        halt(404, "Torrent not tracked") unless (options.database_adapter.torrent_by_infohash(params[:infohash]))
+        halt(404, "Torrent not tracked") unless (d = options.database_adapter.torrent_by_infohash(params[:infohash]))
         
-        # http://bittornado.com/docs/webseed-spec.txt
         
-        # TODO: intelligent wait period
-        halt(503,"15") if false # ask clients to wait 15 seconds before requesting again
       end
+=end
       
       # Provides the files for web download. Any query parameters are treated as a checksum for the file (via the torrent infohash)
       app.get "/#{app.options.downloads_mount}/:filename" do
