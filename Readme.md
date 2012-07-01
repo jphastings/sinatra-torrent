@@ -29,7 +29,7 @@ There needs to be a database of torrents, peers and background hashing jobs, thi
     }
     require 'sinatra/torrent'
 
-The active record adapter is loaded by default if no others are specified and an SQLite database will be maintained in memory unless options (like those above) are specified. This means that, unless you set settings like this, when your app shuts down your hashes will be lost!
+The active record adapter is loaded by default if no others are specified and an SQLite database will be maintained in memory unless settings (like those above) are specified. This means that, unless you set options like this, when your app shuts down your hashes will be lost!
 
 Rake
 ----

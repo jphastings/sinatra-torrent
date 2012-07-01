@@ -1,6 +1,8 @@
 # The active record adapter works with SQLite3 in memory by default
 require 'active_record'
 
+ActiveRecord::Base.logger = nil
+
 module Sinatra
   module Torrent
     # This is the wrapper class used by sinatra-torrent to communicate with
@@ -21,7 +23,7 @@ module Sinatra
       # Makes sure the table is present & ready, log in using the settings
       def initialize
         @db = ActiveRecord::Base.establish_connection(@@settings)
-    
+
         unless Torrent.table_exists?
           ActiveRecord::Schema.define do
             create_table :torrents do |table|
